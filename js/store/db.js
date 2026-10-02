@@ -1,44 +1,63 @@
-// AVENLO DATA STORE ENGINE
+// AVENLO DATA STORE ENGINE (FIREBASE FIRESTORE SYNC)
 class AvenloStore {
   constructor() {
-    this.KEY = 'avenlo_db_v3';
     this.listeners = [];
-    this.data = this._load();
+    
+    // Start with seed data so UI doesn't crash on initial render
+    this.data = JSON.parse(JSON.stringify(typeof SEED_DATA !== 'undefined' ? SEED_DATA : {
+      users: [], candidateProfiles: [], companyEnquiries: [], services: [], orders: [], settings: {}
+    }));
+    
+    this._initFirebase();
   }
 
-  _load() {
-    try {
-      const stored = localStorage.getItem(this.KEY);
-      if (stored) return JSON.parse(stored);
-    } catch (e) { /* ignore */ }
-    const seed = JSON.parse(JSON.stringify(SEED_DATA));
-    this._save(seed);
-    return seed;
-  }
+  _initFirebase() {
+    if (!window.firebaseDb) {
+      console.error('Firebase DB not initialized');
+      return;
+    }
 
-  _save(data) {
-    try { localStorage.setItem(this.KEY, JSON.stringify(data || this.data)); } catch (e) { /* ignore */ }
+    const db = window.firebaseDb;
+    
+    // Helper to auto-seed a collection if it's completely empty
+    const syncCollection = (collectionName, seedDataArray, idField = 'id') => {
+      db.collection(collectionName).onSnapshot(snap => {
+        if (snap.empty && seedDataArray && seedDataArray.length > 0) {
+          console.log(`Auto-seeding ${collectionName}...`);
+          seedDataArray.forEach(item => {
+            const docId = item[idField] || 'doc_' + Date.now() + Math.random();
+            db.collection(collectionName).doc(docId).set(item);
+          });
+        } else {
+          this.data[collectionName] = snap.docs.map(doc => doc.data());
+          this._emit();
+        }
+      });
+    };
+
+    syncCollection('users', this.data.users, 'id');
+    syncCollection('candidateProfiles', this.data.candidateProfiles, 'userId');
+    syncCollection('companyEnquiries', this.data.companyEnquiries, 'id');
+    syncCollection('services', this.data.services, 'id');
+    syncCollection('orders', this.data.orders, 'id');
   }
 
   _emit() {
-    this._save();
     this.listeners.forEach(fn => fn(this.data));
   }
 
   subscribe(fn) { this.listeners.push(fn); }
 
   resetData() {
-    localStorage.removeItem(this.KEY);
-    this.data = JSON.parse(JSON.stringify(SEED_DATA));
-    this._emit();
+    console.warn("Reset data is disabled when using Firebase.");
   }
 
   // ─── Users ──────────────────────────
   getUsers() { return this.data.users || []; }
-  getUserById(id) { return this.data.users.find(u => u.id === id); }
-  getUserByEmail(email) { return this.data.users.find(u => u.email.toLowerCase() === email.toLowerCase()); }
+  getUserById(id) { return (this.data.users || []).find(u => u.id === id); }
+  getUserByEmail(email) { return (this.data.users || []).find(u => u.email.toLowerCase() === email.toLowerCase()); }
 
-  createUser(userData) {
+  async createUser(userData) {
     const id = 'usr_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
     const user = {
       id,
@@ -47,17 +66,13 @@ class AvenloStore {
       createdAt: new Date().toISOString(),
       ...userData
     };
-    this.data.users.push(user);
-    this._emit();
+    await window.firebaseDb.collection('users').doc(id).set(user);
     return user;
   }
 
-  updateUser(id, updates) {
-    const idx = this.data.users.findIndex(u => u.id === id);
-    if (idx === -1) return null;
-    Object.assign(this.data.users[idx], updates);
-    this._emit();
-    return this.data.users[idx];
+  async updateUser(id, updates) {
+    await window.firebaseDb.collection('users').doc(id).update(updates);
+    return { id, ...updates };
   }
 
   // ─── Candidate Profiles ─────────────
@@ -67,20 +82,15 @@ class AvenloStore {
 
   getAllCandidateProfiles() { return this.data.candidateProfiles || []; }
 
-  createCandidateProfile(profileData) {
-    if (!this.data.candidateProfiles) this.data.candidateProfiles = [];
-    this.data.candidateProfiles.push(profileData);
-    this._emit();
+  async createCandidateProfile(profileData) {
+    const userId = profileData.userId;
+    await window.firebaseDb.collection('candidateProfiles').doc(userId).set(profileData);
     return profileData;
   }
 
-  updateCandidateProfile(userId, updates) {
-    if (!this.data.candidateProfiles) return null;
-    const idx = this.data.candidateProfiles.findIndex(p => p.userId === userId);
-    if (idx === -1) return null;
-    Object.assign(this.data.candidateProfiles[idx], updates);
-    this._emit();
-    return this.data.candidateProfiles[idx];
+  async updateCandidateProfile(userId, updates) {
+    await window.firebaseDb.collection('candidateProfiles').doc(userId).update(updates);
+    return { userId, ...updates };
   }
 
   // ─── Company Enquiries ──────────────
@@ -91,48 +101,39 @@ class AvenloStore {
     return (this.data.companyEnquiries || []).find(e => e.id === id);
   }
 
-  addEnquiry(data) {
-    if (!this.data.companyEnquiries) this.data.companyEnquiries = [];
+  async addEnquiry(data) {
+    const id = 'enq_' + Date.now();
     const enquiry = {
-      id: 'enq_' + Date.now(),
+      id,
       status: 'new',
       assignedTo: null,
       internalNotes: [],
       createdAt: new Date().toISOString(),
       ...data
     };
-    this.data.companyEnquiries.push(enquiry);
-    this._emit();
+    await window.firebaseDb.collection('companyEnquiries').doc(id).set(enquiry);
     return enquiry;
   }
 
-  updateEnquiry(id, updates) {
-    const idx = (this.data.companyEnquiries || []).findIndex(e => e.id === id);
-    if (idx === -1) return null;
-    Object.assign(this.data.companyEnquiries[idx], updates);
-    this._emit();
-    return this.data.companyEnquiries[idx];
+  async updateEnquiry(id, updates) {
+    await window.firebaseDb.collection('companyEnquiries').doc(id).update(updates);
   }
-  updateCompanyEnquiry(id, updates) { return this.updateEnquiry(id, updates); }
+  async updateCompanyEnquiry(id, updates) { return this.updateEnquiry(id, updates); }
 
-  addEnquiryNote(id, note) {
+  async addEnquiryNote(id, note) {
     const enquiry = this.getEnquiryById(id);
     if (!enquiry) return;
-    if (!enquiry.internalNotes) enquiry.internalNotes = [];
-    enquiry.internalNotes.push(note);
-    this._emit();
+    const notes = enquiry.internalNotes || [];
+    notes.push(note);
+    await window.firebaseDb.collection('companyEnquiries').doc(id).update({ internalNotes: notes });
   }
 
   // ─── Services ───────────────────────
   getServices() { return (this.data.services || []).filter(s => s.active); }
   getAllServices() { return this.data.services || []; }
 
-  updateService(id, updates) {
-    const idx = (this.data.services || []).findIndex(s => s.id === id);
-    if (idx === -1) return null;
-    Object.assign(this.data.services[idx], updates);
-    this._emit();
-    return this.data.services[idx];
+  async updateService(id, updates) {
+    await window.firebaseDb.collection('services').doc(id).update(updates);
   }
 
   // ─── Orders ─────────────────────────
@@ -143,22 +144,22 @@ class AvenloStore {
   }
   getOrdersByUserId(userId) { return this.getOrders({ userId }); }
 
-  addOrder(order) {
-    if (!this.data.orders) this.data.orders = [];
+  async addOrder(order) {
+    const id = 'ord_' + Date.now();
     const newOrder = {
-      id: 'ord_' + Date.now(),
+      id,
       status: 'pending',
       createdAt: new Date().toISOString(),
       ...order
     };
-    this.data.orders.push(newOrder);
-    this._emit();
+    await window.firebaseDb.collection('orders').doc(id).set(newOrder);
     return newOrder;
   }
 
   // ─── Settings ───────────────────────
   getSettings() { return this.data.settings || {}; }
   updateSettings(updates) {
+    // Left local for simplicity unless needed globally
     this.data.settings = { ...this.data.settings, ...updates };
     this._emit();
   }
@@ -199,12 +200,12 @@ class AvenloStore {
     }).map(p => ({ ...p, user: this.getUserById(p.userId) }));
   }
 
-  addCandidateNote(userId, note) {
+  async addCandidateNote(userId, note) {
     const profile = this.getCandidateProfile(userId);
     if (!profile) return;
-    if (!profile.internalNotes) profile.internalNotes = [];
-    profile.internalNotes.push(note);
-    this._emit();
+    const notes = profile.internalNotes || [];
+    notes.push(note);
+    await window.firebaseDb.collection('candidateProfiles').doc(userId).update({ internalNotes: notes });
   }
 }
 

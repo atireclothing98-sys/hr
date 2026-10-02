@@ -384,7 +384,7 @@ class JoinPage {
     }
   }
 
-  handleStep3(e) {
+  async handleStep3(e) {
     e.preventDefault();
     this.formData.desiredRoles = document.getElementById('regTargetRole').value.trim();
     this.formData.expectedSalaryLPA = Number(document.getElementById('regSalary').value) || 20;
@@ -398,8 +398,13 @@ class JoinPage {
       this.formData.cvFilename = `${cleanName}_CV.pdf`;
     }
 
+    const btn = e.target.querySelector('button[type="submit"]');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = 'Creating Profile...';
+    btn.disabled = true;
+
     // Register user and create candidate profile
-    const regResult = window.auth.register({
+    const regResult = await window.auth.register({
       name: this.formData.name,
       email: this.formData.email,
       phone: this.formData.phone,
@@ -423,6 +428,9 @@ class JoinPage {
       networkStatus: 'talent_network',
       statusNote: 'Profile registered & verified in Talent Network.'
     });
+
+    btn.innerHTML = originalText;
+    btn.disabled = false;
 
     if (regResult.error) {
       window.toast(regResult.error, 'danger');

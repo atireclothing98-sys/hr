@@ -36,23 +36,6 @@ class LoginPage {
               </button>
             </form>
 
-            <!-- Quick Demo Credentials Box -->
-            <div style="margin-top:2rem;padding-top:1.5rem;border-top:1px solid var(--border);">
-              <span style="display:block;font-size:0.75rem;font-weight:700;letter-spacing:0.5px;color:var(--text-light);text-transform:uppercase;margin-bottom:0.75rem;text-align:center;">
-                One-Click Quick Test Accounts
-              </span>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
-                <button type="button" class="btn btn-sm btn-secondary" onclick="window.loginPage.quickLogin('aarav.sharma@example.in', 'password123')" style="font-size:0.8rem;text-align:center;padding:0.6rem;">
-                  <strong>Candidate Demo</strong><br>
-                  <span style="font-size:0.7rem;color:var(--text-light);">Aarav Sharma</span>
-                </button>
-                <button type="button" class="btn btn-sm btn-secondary" onclick="window.loginPage.quickLogin('admin@avenlo.in', 'admin2025')" style="font-size:0.8rem;text-align:center;padding:0.6rem;">
-                  <strong>Admin Operations</strong><br>
-                  <span style="font-size:0.7rem;color:var(--text-light);">Avenlo Team</span>
-                </button>
-              </div>
-            </div>
-
             <!-- Join prompt -->
             <div style="text-align:center;margin-top:1.75rem;font-size:0.875rem;color:var(--text-light);">
               Don't have an Avenlo account yet?
@@ -64,12 +47,21 @@ class LoginPage {
     `;
   }
 
-  handleLogin(e) {
+  async handleLogin(e) {
     e.preventDefault();
     const email = document.getElementById('loginEmail').value.trim();
     const password = document.getElementById('loginPassword').value;
 
-    const res = window.auth.login(email, password);
+    const btn = e.target.querySelector('button[type="submit"]');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = 'Signing in...';
+    btn.disabled = true;
+
+    const res = await window.auth.login(email, password);
+
+    btn.innerHTML = originalText;
+    btn.disabled = false;
+
     if (res.error) {
       window.toast(res.error, 'danger');
       return;
@@ -82,20 +74,5 @@ class LoginPage {
       window.location.hash = '#dashboard';
     }
   }
-
-  quickLogin(email, password) {
-    const res = window.auth.login(email, password);
-    if (res.error) {
-      window.toast(res.error, 'danger');
-      return;
-    }
-    window.toast(`Logged in as ${res.user.name}`, 'success');
-    if (res.user.role === 'admin') {
-      window.location.hash = '#admin';
-    } else {
-      window.location.hash = '#dashboard';
-    }
-  }
-}
 
 window.loginPage = new LoginPage();

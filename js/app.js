@@ -19,6 +19,13 @@ class AvenloApp {
       });
     }
 
+    // Subscribe to db changes to instantly re-render active page on Firestore updates
+    if (window.db) {
+      window.db.subscribe(() => {
+        this.render();
+      });
+    }
+
     // Initial render
     this.handleRoute();
   }
