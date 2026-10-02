@@ -1,0 +1,24 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      // Storage rules can query Firestore to verify the role
+      return isAuthenticated() && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // CV Storage: Only the candidate who owns the CV or an Admin can read/write it.
+    match /cvs/{userId}/{fileName} {
+      allow read, write: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+    }
+    
+    // Default deny for all other buckets/files
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
