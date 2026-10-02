@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 220">
+<rect width="700" height="220" fill="none"/>
+
+<g>
+  <path d="M20 175 L105 25 Q112 14 120 25 L205 150 L165 150 L112 65 L72 150 Z" fill="#2563EB"/>
+  <path d="M37 170 Q105 82 190 78 Q210 77 224 80 Q145 98 88 160 Z" fill="#32D583"/>
+</g>
+<g transform="translate(255,25)">
+<text x="0" y="105" font-family="Manrope, Arial, sans-serif" font-size="88"
+      font-weight="700" letter-spacing="3" fill="#101828">AVENLO</text>
+<text x="0" y="145" font-family="Inter, Arial, sans-serif" font-size="20"
+      letter-spacing=".2" fill="#667085">Build Your Career. Find Your Opportunity.</text></g>
+</svg>
