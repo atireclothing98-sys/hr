@@ -74,5 +74,6 @@ class LoginPage {
       window.location.hash = '#dashboard';
     }
   }
+}
 
 window.loginPage = new LoginPage();
